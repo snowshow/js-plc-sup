@@ -1,0 +1,259 @@
+<!doctype HTML>
+
+<html>
+
+  <head>
+
+    <style type="text/css">
+
+      html, body { height:100%; }
+
+      #input {
+        width:60%;
+	float:left;
+      }
+
+      #log {
+        width:40%;
+	float:right;
+	max-height:100%;
+	overflow-x:scroll;
+      }
+
+      .logCon {
+        background-color:#eeeeee;
+	margin-bottom:0.3em;
+	padding:0.3em;
+      }
+
+      .logCon .logTime {
+	font-size:0.7em;
+	margin:0;
+	padding-bottom:0.3em;
+      }
+
+      .logCon p {
+
+        margin:0;
+	padding:0;
+      }
+
+      
+
+    </style>
+
+  </head>
+
+  <body>
+
+    <div id="log">
+
+      <fieldset>
+        <legend>Log</legend>
+
+      </fieldset>
+
+
+    </div>
+
+    <div id="input">
+
+      <fieldset>
+        <legend>Connection</legend>
+	<label for="conAddr">Address</label>
+        <input type="text" id="conAddr" value="ws://192.168.0.1:2000"></input>
+	<input type="button" id="conButton" value="Connect"></input>
+
+        <label for="conState">State</label>
+	<input type="text" id="conState" value="Disconnected" disabled></input>
+      </fieldset>
+
+      <fieldset>
+	<legend>SetValue</legend>
+        <label for="setAddr">Address</label>
+	<input type="text" id="setAddr" value="%MX0.0"></input>
+	
+	<label for="setValue">Value</label>
+	<input type="text" id="setValue" value="1"></input>
+	<input type="button" id="setButton" value="setValue" disabled></input>
+      </fieldset>
+
+      <fieldset>
+	<legend>GetValue</legend>
+        <label for="getAddr">Address</label>
+	<input type="text" id="getAddr" value="%MX0.0"></input>
+
+	<label for="getValue">Value</label>
+	<input type="text" id="getValue" value="" disabled></input>
+        <input type="button" id="getButton" value="getValue" disabled></input>
+      </fieldset>
+
+      <fieldset>
+       <legend>Subscribe</legend>
+       <label for="subAddr">Addresses</label>
+       <input type="text" id="subAddr" value="%MX0.0, %MB2"></input>
+       <input type="button" id="subButton" value="subscribe" disabled></input>
+      </fieldset>
+
+      <fieldset>
+        <legend>Unsubscribe</legend>
+        <label for="unsubAddr">Addresses</label>
+        <input type="text" id="unsubAddr" value="%MX0.0, %MB2"></input>
+        <input type="button" id="unsubButton" value="unsubscribe" disabled></input>
+      </fieldset>
+
+   </div>
+
+    <script src="../../jquery-1.8.3.min.js"></script>
+    <script src="../../plc-notation.js"></script>
+    <script src="../../plc-sup-client.js"></script>
+    <script>
+
+	$(document).ready(function () {
+
+          var log = function (msg) {
+
+            var c = $('<div class="logCon"><div>'),
+		t = $('<span class="logTime"></span>'),
+		e = $('<p>' + msg + '</p>'),
+		d = new Date();
+		
+	    $(t).html(d.getTime());
+
+	    $(c).append(t, e);
+	    
+	    $('#log fieldset').prepend(c);
+
+	  };
+
+          var ws,
+              plc, 
+	      isCon = false;
+
+	  $('#conButton').click(function () {
+
+	    if (ws) {
+	      ws.close();
+	      return;
+	    }
+
+            ws = new WebSocket($('#conAddr').val());
+	    plc = PLCSuPClient(ws);
+
+	    plc.on("open", function () {
+
+	      log('Connection to ' + $('#conAddr').val() + ' established.');
+
+              $('#conButton').val('Disconnect');
+	      $('#conAddr').prop('disabled', true);
+	      $('#conState').val('Connected');
+
+	      $('#setButton, #getButton, #subButton, #unsubButton').prop('disabled', false);
+
+	    });
+
+	    plc.on('close', function () {
+
+	      log('Disconnected.');
+
+              $('#conButton').val('Connect');
+	      $('#conAddr').prop('disabled', false);
+	      $('#conState').val('Disconnected');
+	 
+	      $('#setButton, #getButton, #subButton, #unsubButton').prop('disabled', true);
+  
+              ws = null;
+	      plc = null;
+
+	    });
+
+	    plc.on('error', function () {
+
+  	      log('Error');
+
+	    });
+
+	    plc.on("update", function (value) {
+
+	      var i;
+
+	      for (i = 0; i < value.values.length; i += 1) {
+
+	        log("Received update for register " + value.values[i].plcAddr + " with value " + value.values[i].value);
+
+	      }
+
+	    });
+
+	    $('#getButton').unbind();
+	    $('#getButton').click(function () {
+
+	      plc.getValue($('#getAddr').val(), function (value, err) {
+
+		if (err) {
+		  log('error on getValue');
+		  return;
+		}
+
+		log('getValue returned value ' + value);
+
+	        $('#getValue').val(value);
+
+
+	      });
+
+            });
+
+	    $('#setButton').unbind();
+	    $('#setButton').click(function () {
+
+	      var int = parseInt($('#setValue').val());
+
+	      plc.setValue($('#setAddr').val(), int,  function (dummy, err) {
+
+	        if (err) {
+		  log('error on setValue');
+		  return;
+		}
+
+		log('setValue completed successfully.');
+
+	      });
+
+	    });
+
+	    $('#subButton').unbind();
+	    $('#subButton').click(function () {
+
+	      var list = $('#subAddr').val().split(',');
+
+	      list.push(function (numberOfSubs, err) {
+
+   	        if (err) {
+		  log('error on subscribe.');
+		  return;
+		}
+
+		log('subscribed to ' + numberOfSubs + ' register.');
+
+	      });
+
+	      for (var i = 0; i < list.length - 1; i += 1) {
+		list[i] = $.trim(list[i]);
+	      }
+
+	      plc.subscribe.apply(plc, list);
+
+	    });
+
+
+	  });
+
+	});
+
+    </script
+
+  </body>
+
+
+</html>

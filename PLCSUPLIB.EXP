@@ -1,0 +1,1047 @@
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/messages' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION sendOutOfSubsAnswer : BOOL
+VAR_INPUT
+	sendPkt	:	POINTER TO Packet;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+sendPkt^.data[0] := 2 + 8;
+sendPkt^.data[1] := 2;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/messages' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION sendReadAnswer : BOOL
+VAR_INPUT
+
+	sendPkt		:	POINTER TO Packet;
+	address		:	Address;
+
+END_VAR
+VAR
+
+	value				:	DWORD;
+
+END_VAR
+(* @END_DECLARATION := '0' *)
+sendPkt^.data[0] := 0;
+sendPkt^.data[0].0 := 1;
+sendPKt^.data[0].2 := 1;
+sendPkt^.data[1] := UINT_TO_BYTE(SHR(address.offset, 8));
+sendPkt^.data[2] := UINT_TO_BYTE(SHR(SHL(address.offset, 8), 8));
+
+IF (address.bitCount = 1) THEN
+	IF (getBitValue(address)) THEN
+		sendPkt^.data[3] := 255;
+	ELSE
+		sendPkt^.data[3] := 0;
+	END_IF
+
+	sendPkt^.data[0].7 := TRUE;
+
+	sendPkt^.size := sendPkt^.size + 4;
+
+ELSIF (address.bitCount = 8) THEN
+
+	sendPkt^.data[0].6 := TRUE;
+
+	sendPkt^.data[3] := getByteValue(address);
+
+	sendPkt^.size := sendPkt^.size + 4;
+
+ELSIF (address.bitCount = 16) THEN
+
+	sendPkt^.data[0].5 := TRUE;
+
+	value := getWordValue(address);
+
+	sendPkt^.data[3] := DWORD_TO_BYTE(SHR(value, 8));
+	sendPkt^.data[4] := DWORD_TO_BYTE(SHR(SHL(value, 8), 8));
+
+	sendPkt^.size := sendPkt^.size + 5;
+
+ELSIF (address.bitCount = 32) THEN
+
+	sendPkt^.data[0].4 := TRUE;
+
+	value := getDWordValue(address);
+
+	sendPkt^.data[3] := DWORD_TO_BYTE(SHR(value, 24));
+	sendPkt^.data[4] := DWORD_TO_BYTE(SHR(SHL(value, 8), 24));
+	sendPkt^.data[5] := DWORD_TO_BYTE(SHR(SHL(value, 16), 24));
+	sendPkt^.data[6] := DWORD_TO_BYTE(SHR(SHL(value, 24), 24));
+
+	sendPkt^.size := sendPkt^.size + 7;
+
+END_IF
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/messages' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION sendSubscribeAnswer : BOOL
+VAR_INPUT
+	sendPkt			:	POINTER TO Packet;
+	numberOfSubs	:	UINT;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+sendPkt^.data[0] := 6;
+sendPkt^.data[1] := UINT_TO_BYTE(SHR(numberOfSubs, 8));
+sendPkt^.data[2] := UINT_TO_BYTE(SHR(SHL(numberOfSubs, 8), 8));
+sendPkt^.size := 3;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/messages' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION sendUpdate : BOOL
+VAR_INPUT
+
+	sendPkt		:	POINTER TO Packet;
+	pSub			:	POINTER TO Subscription;
+
+END_VAR
+VAR
+
+	offset				:	UINT;
+
+	address			:	Address;
+
+	value				:	DWORD;
+
+END_VAR
+(* @END_DECLARATION := '0' *)
+offset := sendPkt^.size;
+sendPKt^.data[offset] := 2 + 12;
+
+address := pSub^.address;
+
+sendPkt^.data[offset + 1] := INT_TO_BYTE(SHR(address.offset, 8));
+sendPkt^.data[offset + 2] := INT_TO_BYTE(SHR(SHL(address.offset, 8), 8));
+
+IF (address.bitCount = 1) THEN
+	IF (getBitValue(address)) THEN
+		value := 255;
+	ELSE
+		value := 0;
+	END_IF
+
+	IF (value <> pSub^.oldValue) THEN
+		sendPkt^.data[offset].7 := TRUE;
+		sendPkt^.data[offset + 3] := DWORD_TO_BYTE(value);
+		sendPkt^.size := sendPkt^.size + 4;
+		pSub^.oldValue := value;
+	END_IF
+
+
+ELSIF (address.bitCount = 8) THEN
+
+	value := getByteValue(address);
+
+	IF (value <> pSub^.oldValue) THEN
+		sendPkt^.data[offset].6 := TRUE;
+		sendPkt^.data[offset + 3] := DWORD_TO_BYTE(value);
+		sendPkt^.size := sendPkt^.size + 4;
+
+		pSub^.oldValue := value;
+
+	END_IF
+
+ELSIF (address.bitCount = 16) THEN
+
+	value := getWordValue(address);
+
+	IF (value <> pSub^.oldValue) THEN
+		sendPkt^.data[offset].5 := TRUE;
+
+		sendPkt^.data[offset + 3] := DWORD_TO_BYTE(SHR(value, 8));
+		sendPkt^.data[offset + 4] := DWORD_TO_BYTE(SHR(SHL(value, 8), 8));
+
+		sendPkt^.size := sendPkt^.size + 5;
+
+		pSub^.oldValue := value;
+	END_IF
+
+ELSIF (address.bitCount = 32) THEN
+
+	value := getDWordValue(address);
+
+	IF (value <> pSub^.oldValue) THEN
+		sendPkt^.data[offset].4 := TRUE;
+
+		sendPkt^.data[offset + 3] := DWORD_TO_BYTE(SHR(value, 24));
+		sendPkt^.data[offset + 4] := DWORD_TO_BYTE(SHR(SHL(value, 8), 24));
+		sendPkt^.data[offset + 5] := DWORD_TO_BYTE(SHR(SHL(value, 16), 24));
+		sendPkt^.data[offset + 6] := DWORD_TO_BYTE(SHR(SHL(value, 24), 24));
+
+		sendPkt^.size := sendPkt^.size + 7;
+
+		pSub^.oldValue := value;
+
+	END_IF
+
+END_IF
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/messages' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION sendWriteAnswer : BOOL
+VAR_INPUT
+
+	sendPkt		:	POINTER TO Packet;
+	address		:	Address;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+sendPkt^.data[0] := 0;
+sendPkt^.data[0].2 := 1;
+sendPkt^.data[1] := INT_TO_BYTE(SHR(address.offset, 8));
+sendPkt^.data[2] := INT_TO_BYTE(SHR(SHL(address.offset, 8), 8));
+
+sendPkt^.size := 3;
+
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getAddress : Address
+VAR_INPUT
+	rcvPacket		:	POINTER TO Packet;
+	offset			:	BYTE := 0;
+END_VAR
+VAR
+	address		:	POINTER TO INT;
+END_VAR
+(* @END_DECLARATION := '0' *)
+getAddress.bitCount := getBitCount(rcvPacket, offset);
+getAddress.offset := SHL(rcvPacket^.data[offset + 1], 8) + rcvPacket^.data[offset+2];
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getBit : BOOL
+VAR_INPUT
+	src		: 		BYTE;
+	index	:		BYTE;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+IF (index = 0) THEN
+	getBit:= src.0;
+ELSIF (index = 1) THEN
+	getBit := src.1;
+ELSIF (index = 2) THEN
+	getBit := src.2;
+ELSIF (index = 3) THEN
+	getBit := src.3;
+ELSIF (index = 4) THEN
+	getBit := src.4;
+ELSIF (index = 5) THEN
+	getBit := src.5;
+ELSIF (index = 6) THEN
+	getBit := src.6;
+ELSIF (index = 7) THEN
+	getBit := src.7;
+END_IF
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getBitCount : BYTE
+VAR_INPUT
+	rcvPacket		:	POINTER TO Packet;
+	offset			:	BYTE := 0;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+IF (rcvPacket^.data[offset].7) THEN
+	getBitCount := 1;
+	RETURN;
+ELSIF (rcvPacket^.data[offset].6) THEN
+	getBitCount := 8;
+	RETURN;
+ELSIF (rcvPacket^.data[offset].5) THEN
+	getBitCount := 16;
+	RETURN;
+ELSIF (rcvPacket^.data[offset].4) THEN
+	getBitCount := 32;
+	RETURN;
+ELSIF (rcvPacket^.data[offset].3) THEN
+	getBitCount := 64;
+ELSE
+	getBitCount := 0;
+END_IF
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getFunctionCode : BYTE
+VAR_INPUT
+	rcvPacket		:	POINTER TO Packet;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+getFunctionCode.0 := rcvPacket^.data[0].0;
+getFunctionCode.1 := rcvPacket^.data[0].1;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setBit : BYTE
+VAR_INPUT
+	src			:	BYTE;
+	index		:	BYTE;
+	value		:	BOOL;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+setBit := src;
+IF (index = 0) THEN
+	setBit.0:= value;
+ELSIF (index = 1) THEN
+	setBit.1 := value;
+ELSIF (index = 2) THEN
+	setBit.2 := value;
+ELSIF (index = 3) THEN
+	setBit.3 := value;
+ELSIF (index = 4) THEN
+	setBit.4 := value;
+ELSIF (index = 5) THEN
+	setBit.5 := value;
+ELSIF (index = 6) THEN
+	setBit.6 := value;
+ELSIF (index = 7) THEN
+	setBit.7 := value;
+END_IF
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setValue : BOOL
+VAR_INPUT
+	rcvPkt			:	POINTER TO Packet;
+	address		:	Address;
+END_VAR
+VAR
+END_VAR
+(* @END_DECLARATION := '0' *)
+IF (address.bitCount = 1) THEN
+	IF (rcvPkt^.data[3] = 255) THEN
+		setBitValue(address, TRUE);
+	ELSIF (rcvPkt^.data[3] = 0) THEN
+		setBitValue(address, FALSE);
+	END_IF
+ELSIF (address.bitCount = 8) THEN
+	setByteValue(address, rcvPkt^.data[3]);
+ELSIF (address.bitCount = 16) THEN
+	setWordValue(address, SHL(rcvPkt^.data[3], 8) + rcvPkt^.data[4]);
+ELSIF (address.bitCount = 32) THEN
+	setDWordValue(address, SHL(rcvPkt^.data[3], 24) + SHL(rcvPkt^.data[4], 16) + SHL(rcvPkt^.data[5], 8) + rcvPkt^.data[6]);
+END_IF
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION subscribe : INT
+VAR_INPUT
+	rcvPkt		:	POINTER TO Packet;
+	subs		:	POINTER TO ARRAY[0..MAX_SUBSCRIPTIONS] OF Subscription;
+END_VAR
+VAR
+	I, J			:	BYTE;
+	address	:	Address;
+
+END_VAR
+(* @END_DECLARATION := '0' *)
+subscribe := 0;
+
+I := 0; J := 0;
+address := getAddress(rcvPkt, 0);
+WHILE (address.bitCount > 0 AND i < 122) DO
+
+	WHILE (subs^[J].active AND J < MAX_SUBSCRIPTIONS) DO
+		J := J + 1;
+		subscribe := subscribe + 1;
+	END_WHILE;
+
+	IF (subscribe = MAX_SUBSCRIPTIONS) THEN
+		RETURN;
+	END_IF
+
+	subs^[J].active := TRUE;
+
+	subs^[j].address := address;
+
+	I := I + 3;
+
+	address := getAddress(rcvPkt, I);
+END_WHILE
+
+WHILE (J < MAX_SUBSCRIPTIONS) DO
+	IF (subs^[j].active) THEN
+		subscribe := subscribe + 1;
+	END_IF
+	J := J + 1;
+END_WHILE;
+
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/private' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION unsubscribe : BOOL
+VAR_INPUT
+	rcvPkt		:	POINTER TO Packet;
+	subs		:	POINTER TO ARRAY[0..MAX_SUBSCRIPTIONS] OF Subscription;
+END_VAR
+VAR
+	I, J			:	BYTE;
+	address	:	Address;
+END_VAR
+(* @END_DECLARATION := '0' *)
+I := 0; J := 0;
+address := getAddress(rcvPkt, 0);
+WHILE (address.bitCount > 0 AND I < 122) DO
+
+	WHILE (subs^[J].active) DO
+		J := (J + 1) MOD MAX_SUBSCRIPTIONS;
+	END_WHILE;
+
+	subs^[J].active := FALSE;
+
+	I := I + 3;
+
+	address := getAddress(rcvPkt, I);
+
+END_WHILE
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getBitValue : BOOL
+VAR_INPUT
+	address		:	Address;
+END_VAR
+VAR
+	offset			:	UINT;
+	modulo		: 	BYTE;
+	pByte			:	POINTER TO BYTE;
+END_VAR
+(* @END_DECLARATION := '0' *)
+modulo := INT_TO_BYTE(address.offset MOD 8);
+offset := TRUNC((address.offset - modulo) / 8 );
+
+pByte := ADR(%MB0) + offset;
+
+getBitValue := getBit(pByte^, modulo);
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getByteValue : BYTE
+VAR_INPUT
+	address		:	Address;
+END_VAR
+VAR
+	pByte			:	POINTER TO BYTE;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pByte := ADR(%MB0) + address.offset;
+getByteValue := pByte^;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getDWordValue : DWORD
+VAR_INPUT
+	address		:	Address;
+END_VAR
+VAR
+	pdWord		:	POINTER TO DWORD;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pdWord := ADR(%MD0) + address.offset;
+getDWordValue := pdWord^;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION getWordValue : WORD
+VAR_INPUT
+	address		:	Address;
+END_VAR
+VAR
+	pWord			:	POINTER TO WORD;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pWord := ADR(%MW0) + address.offset;
+getWordValue := pWord^;
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setBitValue : BOOL
+VAR_INPUT
+	address		:	Address;
+	value			:	BOOL;
+END_VAR
+VAR
+	offset			:	UINT;
+	modulo		:	BYTE;
+	pByte			:	POINTER TO BYTE;
+END_VAR
+(* @END_DECLARATION := '0' *)
+modulo := INT_TO_BYTE(address.offset MOD 8);
+offset := TRUNC((address.offset - modulo) / 8 );
+pByte := ADR(%MB0) + offset;
+pByte^ := setBit(pByte^, modulo, value);
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setByteValue : BOOL
+VAR_INPUT
+	address		:	Address;
+	value			:	BYTE;
+END_VAR
+VAR
+	pByte			:	POINTER TO BYTE;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pByte := ADR(%MB0) + address.offset;
+pByte^ := value;
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setDWordValue : BOOL
+VAR_INPUT
+	address		:	Address;
+	value			:	DWORD;
+END_VAR
+VAR
+	pDWord		:	POINTER TO DWORD;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pDWord := ADR(%MD0) + address.offset;
+pDWord^ := value;
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '\/values' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION setWordValue : BOOL
+VAR_INPUT
+	address		:	Address;
+	value			:	WORD;
+END_VAR
+VAR
+	pWord			:	POINTER TO WORD;
+END_VAR
+(* @END_DECLARATION := '0' *)
+pWord := ADR(%MW0) + address.offset;
+pWord^ := value;
+
+END_FUNCTION
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+PROGRAM PLC_PRG
+VAR
+	wsSubscriber				:	wsSubscriber;
+	WebSocket				:	WebSocket;
+	tcpServer					:	TCP_Server;
+
+	vBoolOne AT %MX0.0		:	BOOL;
+	vBoolTwo AT %MX0.1		:	BOOL;
+	vBoolThree AT %MX0.2	:	BOOL;
+	vByteOne AT %MB2		:	BYTE;
+	vWordOne AT %MW3		:	WORD;
+	vDWordOne AT %MD6	:	DWORD;
+END_VAR
+(* @END_DECLARATION := '0' *)
+(*invoke the wsSubscriber module simply like this and make this programm a
+   free running task *)
+wsSubscriber(WebSocket := ADR(WebSocket), tcpServer := ADR(tcpServer));
+
+END_PROGRAM
+
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+FUNCTION_BLOCK wsSubscriber
+VAR_INPUT
+	WebSocket		:	POINTER TO WebSocket;
+	tcpServer			:	POINTER TO TCP_Server;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR CONSTANT
+	WRITE						:	BYTE := 0;
+	READ						:	BYTE := 1;
+	SUBSCRIBE				:	BYTE := 2;
+	UNSUBSCRIBE			:	BYTE := 3;
+END_VAR
+VAR
+
+	rcvPkt				:	Packet;
+	sendPkt			:	Packet;
+
+	subs				:	ARRAY[0..MAX_SUBSCRIPTIONS] OF Subscription;
+
+	functionCode		:	BYTE;
+
+	address			:	Address;
+
+	vBoolValue		:	BOOL;
+	pByte				:	POINTER TO BYTE;
+
+	I, J					:	BYTE;
+
+	numberOfSubs	:	INT := 0;
+
+	oldState			:	BYTE := 0;
+
+END_VAR
+(* @END_DECLARATION := '0' *)
+WebSocket^(tcpServer := tcpServer, rcvPkt := rcvPkt, sendPkt := sendPkt);
+
+(*  in case information are available on the websocket port *)
+IF (rcvPkt.size > 0 AND WebSocket^.state = WebSocket^.OPEN) THEN
+
+	(* get the function code of the request *)
+	functionCode := getFunctionCode(ADR(rcvPkt));
+
+	(* handle read request *)
+	IF (functionCode = READ) THEN
+
+		address:= getAddress(ADR(rcvPkt), 0);
+		sendReadAnswer(ADR(sendPkt), address);
+
+	(* handle write request *)
+	ELSIF (functionCode = WRITE) THEN
+
+		address := getAddress(ADR(rcvPkt), 0);
+		setValue(ADR(rcvPkt), address);
+		sendWriteAnswer(ADR(sendPkt), address);
+
+	(* handle subscribe request *)
+	ELSIF (functionCode = subscribe) THEN
+
+		(* read subscriptions till zero bitcount arrives *)
+		numberOfSubs := subscribe(ADR(rcvPkt), ADR(subs));
+
+		IF (numberOfSubs = MAX_SUBSCRIPTIONS) THEN
+			sendOutOfSubsAnswer(ADR(sendPkt));
+		ELSE
+			sendSubscribeAnswer(ADR(sendPkt), numberOfSubs);
+		END_IF
+
+	(* handle unsubscribe request (not implemented yet) *)
+	ELSIF (functionCode = unsubscribe) THEN
+
+		(* read subscriptions till zero bitcount arrives *)
+		unsubscribe(ADR(rcvPkt), ADR(subs));
+
+	END_IF
+
+	(* free received bytes *)
+	rcvPkt.size := 0;
+
+END_IF
+
+(* in case no other packet should be send or not sending process is ongoing check
+    the subscriptions and send updates *)
+IF (sendPkt.size = 0 AND WebSocket^.state = WebSocket^.OPEN AND NOT WebSocket^.sending) THEN
+	FOR I:= 0 TO MAX_SUBSCRIPTIONS DO
+
+		IF (subs[I].active) THEN
+			sendUpdate(ADR(sendPKt), ADR(subs[I]));
+		END_IF
+
+	END_FOR
+
+END_IF
+
+(* if the websocket connection is closed then remove all subscriptions *)
+IF (oldState = WebSocket^.OPEN AND WebSocket^.state = WebSocket^.CLOSED) THEN
+	FOR I:= 0 TO MAX_SUBSCRIPTIONS DO
+
+		subs[I].active := FALSE;
+
+	END_FOR
+
+END_IF
+
+oldState := WebSocket^.state;
+END_FUNCTION_BLOCK
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+TYPE Address :
+STRUCT
+	bitCount	:	BYTE;
+	offset		:	UINT;
+END_STRUCT
+END_TYPE
+(* @END_DECLARATION := '0' *)
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+TYPE Subscription :
+STRUCT
+
+	address		:	Address;
+
+	active			:	BOOL := FALSE;
+
+	oldValue		:	DWORD;
+END_STRUCT
+END_TYPE
+(* @END_DECLARATION := '0' *)
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @GLOBAL_VARIABLE_LIST := 'Globale_Konstanten' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+VAR_GLOBAL CONSTANT
+	MAX_SUBSCRIPTIONS		:	BYTE := 100;
+END_VAR
+
+(* @OBJECT_END := 'Globale_Konstanten' *)
+(* @CONNECTIONS := Globale_Konstanten
+FILENAME : ''
+FILETIME : 0
+EXPORT : 0
+NUMOFCONNECTIONS : 0
+*)
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @GLOBAL_VARIABLE_LIST := 'Globale_Variablen' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+VAR_GLOBAL
+END_VAR
+
+(* @OBJECT_END := 'Globale_Variablen' *)
+(* @CONNECTIONS := Globale_Variablen
+FILENAME : ''
+FILETIME : 0
+EXPORT : 0
+NUMOFCONNECTIONS : 0
+*)
+
+(* @NESTEDCOMMENTS := 'Yes' *)
+(* @GLOBAL_VARIABLE_LIST := 'Variablen_Konfiguration' *)
+(* @PATH := '' *)
+(* @OBJECTFLAGS := '0, 8' *)
+(* @SYMFILEFLAGS := '2048' *)
+VAR_CONFIG
+END_VAR
+
+(* @OBJECT_END := 'Variablen_Konfiguration' *)
+(* @CONNECTIONS := Variablen_Konfiguration
+FILENAME : ''
+FILETIME : 0
+EXPORT : 0
+NUMOFCONNECTIONS : 0
+*)
+
+
+LIBRARY
+E:\Projekte\WebSocketLib\WebSocket.lib 7.1.13 10:17:33
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 16
+byteArrayToString: 2048
+byteToString: 2048
+extractPayload: 2048
+getMask: 2048
+getOpcode: 2048
+getPayloadLength: 2048
+isFin: 2048
+isMasked: 2048
+readRequest: 2048
+readSingleHeader: 2048
+sendError: 2048
+sendPacket: 2048
+sendResponse: 2048
+StringToByteArray: 2048
+WebSocket: 2048
+WebSocketRequest: 2048
+NumOfGVLs: 1
+Globale_Variablen: 2048
+END_LIBRARY
+
+LIBRARY
+Ethernet.lib 2.12.10 13:48:32
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 16
+ETHERNET_CLIENT_CLOSE: 0
+ETHERNET_CLIENT_OPEN: 0
+ETHERNET_CLIENT_OPEN_2: 2048
+ETHERNET_GET_NETWORK_CONFIG: 0
+ETHERNET_GET_VARIABLES: 0
+ETHERNET_GETSOURCEPORT: 0
+ETHERNET_READ: 0
+ETHERNET_READ_PT: 0
+ETHERNET_SERVER_CLOSE: 0
+ETHERNET_SERVER_OPEN: 0
+ETHERNET_SET_NETWORK_CONFIG: 0
+ETHERNET_SET_VARIABLES: 0
+ETHERNET_SETSOURCEPORT: 0
+ETHERNET_VERSION: 0
+ETHERNET_WRITE: 0
+ETHERNET_WRITE_PT: 0
+NumOfGVLs: 1
+CONST_ETHERNET_LIB: 0
+END_LIBRARY
+
+LIBRARY
+IecSfc.lib 13.4.06 15:51:28
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 1
+SFCActionControl: 0
+NumOfGVLs: 1
+Globale_Variablen: 0
+END_LIBRARY
+
+LIBRARY
+Standard.lib 2.12.10 13:48:34
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 26
+ASCIIBYTE_TO_STRING: 2048
+CONCAT: 0
+CTD: 0
+CTU: 0
+CTUD: 0
+DELETE: 0
+F_TRIG: 0
+FIND: 0
+INSERT: 0
+LEFT: 0
+LEN: 0
+MID: 0
+R_TRIG: 0
+REAL_STATE: 2048
+REPLACE: 0
+RIGHT: 0
+RS: 0
+RTC: 0
+SEMA: 0
+SR: 0
+STANDARD_VERSION: 2048
+STRING_COMPARE: 2048
+STRING_TO_ASCIIBYTE: 2048
+TOF: 0
+TON: 0
+TP: 0
+NumOfGVLs: 1
+'Global Variables 0': 0
+END_LIBRARY
+
+LIBRARY
+SYSLIBCALLBACK.LIB 2.12.10 13:48:32
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 2
+SysCallbackRegister: 0
+SysCallbackUnregister: 0
+NumOfGVLs: 2
+Globale_Variablen: 0
+Version: 0
+END_LIBRARY
+
+LIBRARY
+SysLibSockets.lib 10.2.11 08:20:54
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 24
+SysSockAccept: 0
+SysSockBind: 0
+SysSockClose: 0
+SysSockConnect: 0
+SysSockCreate: 0
+SysSockGetHostByName: 0
+SysSockGetHostName: 0
+SysSockGetOption: 0
+SysSockHtonl: 0
+SysSockHtons: 0
+SysSockInetAddr: 0
+SysSockInetNtoa: 0
+SysSockIoctl: 0
+SysSockListen: 0
+SysSockNtohl: 0
+SysSockNtohs: 0
+SysSockRecv: 0
+SysSockRecvFrom: 0
+SysSockSelect: 0
+SysSockSend: 0
+SysSockSendTo: 0
+SysSockSetIPAddress: 0
+SysSockSetOption: 0
+SysSockShutdown: 0
+NumOfGVLs: 1
+Globale_Variablen: 0
+END_LIBRARY
+
+LIBRARY
+SysLibStr.lib 2.12.10 13:48:34
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 6
+SysStrCmp: 0
+SysStrCmpI: 0
+SysStrCmpN: 0
+SysStrCmpNI: 0
+SysStrCpy: 0
+SysStrLen: 0
+NumOfGVLs: 1
+Globale_Variablen: 0
+END_LIBRARY
+
+LIBRARY
+SysLibTime.lib 2.12.10 13:48:32
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 2
+CurTime: 0
+CurTimeEx: 0
+NumOfGVLs: 1
+Globale_Variablen: 0
+END_LIBRARY
+
+LIBRARY
+SysTaskInfo.lib 2.12.10 13:48:32
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 1
+taskinfo: 0
+NumOfGVLs: 1
+Globale_Variablen: 0
+END_LIBRARY
+
+LIBRARY
+WagoLibBase64_01.lib 19.9.11 07:14:42
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 3
+Base64_Decode: 2048
+Base64_Encode: 2048
+Base64_Version: 2048
+NumOfGVLs: 1
+Globale_Variablen: 2048
+END_LIBRARY
+
+LIBRARY
+WagoLibEthernet_01.lib 20.2.12 16:40:34
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 11
+IP_FindBlock: 2048
+IP_FindByte: 2048
+IP_MEMCPY: 2048
+IP_Version: 2048
+TCP_Client: 2048
+TCP_Client2: 2048
+TCP_Server: 2048
+UDP_Client: 2048
+UDP_Client_2: 2048
+UDP_Server: 2048
+UDP_Server2: 2048
+NumOfGVLs: 1
+Globale_Variablen: 2048
+END_LIBRARY
+
+LIBRARY
+WagoLibSHA1.lib 19.9.11 07:14:42
+(* @LIBRARYSYMFILEINFO := '0' *)
+NumOfPOUs: 8
+SHA1: 2048
+SHA1Hex2String: 2048
+SHA1Input: 2048
+SHA1PadMessage: 2048
+SHA1ProcessMessageBlock: 2048
+SHA1Reset: 2048
+SHA1Result: 2048
+SHA1Version: 2048
+NumOfGVLs: 1
+Globale_Variablen: 2048
+END_LIBRARY
