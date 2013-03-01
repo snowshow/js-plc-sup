@@ -1,5 +1,4 @@
 
-
 (* @NESTEDCOMMENTS := 'Yes' *)
 (* @PATH := '\/messages' *)
 (* @OBJECTFLAGS := '0, 8' *)
@@ -377,9 +376,9 @@ IF (address.bitCount = 1) THEN
 ELSIF (address.bitCount = 8) THEN
 	setByteValue(address, rcvPkt^.data[3]);
 ELSIF (address.bitCount = 16) THEN
-	setWordValue(address, SHL(rcvPkt^.data[3], 8) + rcvPkt^.data[4]);
+	setWordValue(address, SHL(BYTE_TO_WORD(rcvPkt^.data[3]), 8) + BYTE_TO_WORD(rcvPkt^.data[4]));
 ELSIF (address.bitCount = 32) THEN
-	setDWordValue(address, SHL(rcvPkt^.data[3], 24) + SHL(rcvPkt^.data[4], 16) + SHL(rcvPkt^.data[5], 8) + rcvPkt^.data[6]);
+	setDWordValue(address, SHL(BYTE_TO_DWORD(rcvPkt^.data[3]), 24) + SHL(BYTE_TO_DWORD(rcvPkt^.data[4]), 16) + SHL(BYTE_TO_DWORD(rcvPkt^.data[5]), 8) + BYTE_TO_DWORD(rcvPkt^.data[6]));
 END_IF
 END_FUNCTION
 
